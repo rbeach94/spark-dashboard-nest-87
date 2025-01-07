@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardActions } from "@/components/dashboard/DashboardActions";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
   const [isAddingItem, setIsAddingItem] = useState(false);
 
-  // Fetch user role
+  // Separate role query with higher priority
   const { data: userRole } = useQuery({
     queryKey: ["userRole"],
     queryFn: async () => {
+      console.log('Fetching user role - high priority');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
       
@@ -24,13 +26,15 @@ const Dashboard = () => {
       
       return roles?.role;
     },
+    staleTime: 30000, // Cache role for 30 seconds
+    cacheTime: 60000, // Keep in cache for 1 minute
   });
 
-  // Fetch user's NFC profiles
+  // Fetch user's NFC profiles with lower priority
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useQuery({
     queryKey: ["nfcProfiles"],
     queryFn: async () => {
-      console.log('Fetching user profiles');
+      console.log('Fetching user profiles - lower priority');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
@@ -42,7 +46,7 @@ const Dashboard = () => {
             code
           )
         `)
-        .eq('user_id', user.id); // Filter by the current user's ID
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -52,10 +56,11 @@ const Dashboard = () => {
     },
   });
 
-  // Fetch user's review plaques
+  // Fetch user's review plaques with lower priority
   const { data: reviewPlaques, isLoading: plaquesLoading } = useQuery({
     queryKey: ["reviewPlaques"],
     queryFn: async () => {
+      console.log('Fetching review plaques - lower priority');
       const { data: plaques, error } = await supabase
         .from("nfc_codes")
         .select("*")
@@ -123,27 +128,38 @@ const Dashboard = () => {
     },
   });
 
-  const isLoading = profilesLoading || plaquesLoading;
-
   return (
     <div className="min-h-screen p-4 md:p-8 page-transition">
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header is always rendered immediately with role */}
         <DashboardHeader userRole={userRole} />
         
+        {/* Actions are always available */}
         <DashboardActions
           isAddingItem={isAddingItem}
           setIsAddingItem={setIsAddingItem}
           assignCodeMutation={assignCodeMutation}
         />
 
-        <DashboardContent
-          isLoading={isLoading}
-          profiles={profiles}
-          reviewPlaques={reviewPlaques}
-        />
+        {/* Content loads progressively */}
+        <Suspense fallback={<DashboardContentSkeleton />}>
+          <DashboardContent
+            isLoading={profilesLoading || plaquesLoading}
+            profiles={profiles}
+            reviewPlaques={reviewPlaques}
+          />
+        </Suspense>
       </div>
     </div>
   );
 };
+
+const DashboardContentSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {[...Array(3)].map((_, i) => (
+      <Skeleton key={i} className="h-[200px] rounded-lg" />
+    ))}
+  </div>
+);
 
 export default Dashboard;
