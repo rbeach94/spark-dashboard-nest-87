@@ -21,7 +21,10 @@ interface AvailableCodesTableProps {
 }
 
 const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps) => {
-  const availableCodes = codes.filter(code => !code.assigned_to).slice(0, 10);
+  // Filter out both assigned and hidden codes
+  const availableCodes = codes
+    .filter(code => !code.assigned_to && !code.is_hidden)
+    .slice(0, 10);
 
   const handleQRDownload = async (url: string) => {
     try {
