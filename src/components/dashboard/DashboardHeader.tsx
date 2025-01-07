@@ -1,6 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,8 +6,6 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({ userRole }: DashboardHeaderProps) => {
-  const navigate = useNavigate();
-
   const { data: userData } = useQuery({
     queryKey: ["userData"],
     queryFn: async () => {
@@ -19,12 +14,6 @@ export const DashboardHeader = ({ userRole }: DashboardHeaderProps) => {
       return user;
     },
   });
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    toast.success("Successfully logged out!");
-    navigate("/login");
-  };
 
   return (
     <div className="space-y-6">
@@ -43,16 +32,6 @@ export const DashboardHeader = ({ userRole }: DashboardHeaderProps) => {
               Hey {userData.email?.split('@')[0]}! 👋
             </p>
           )}
-        </div>
-        <div className="flex gap-4">
-          {userRole === "admin" && (
-            <Button onClick={() => navigate("/admin")} variant="outline">
-              Admin Dashboard
-            </Button>
-          )}
-          <Button onClick={handleLogout} variant="outline">
-            Sign Out
-          </Button>
         </div>
       </div>
     </div>
