@@ -21,7 +21,7 @@ interface AvailableCodesTableProps {
 }
 
 const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps) => {
-  const availableCodes = codes.filter(code => !code.assigned_to && !code.is_hidden).slice(0, 10);
+  const availableCodes = codes.filter(code => !code.assigned_to).slice(0, 10);
 
   const handleQRDownload = async (url: string) => {
     try {
@@ -47,6 +47,7 @@ const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps)
 
   const handleHideToggle = async (code: NFCCode) => {
     try {
+      console.log('Toggling hide for code:', code.id, 'Current value:', code.is_hidden);
       const { error } = await supabase
         .from('nfc_codes')
         .update({ is_hidden: !code.is_hidden })
@@ -105,7 +106,7 @@ const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps)
               </TableCell>
               <TableCell>
                 <Switch
-                  checked={code.is_hidden}
+                  checked={code.is_hidden || false}
                   onCheckedChange={() => handleHideToggle(code)}
                 />
               </TableCell>
