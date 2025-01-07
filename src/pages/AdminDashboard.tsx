@@ -24,6 +24,7 @@ export type NFCCode = {
   assigned_to: string | null;
   assigned_at: string | null;
   url: string | null;
+  is_hidden: boolean | null;
 };
 
 const AdminDashboard = () => {
