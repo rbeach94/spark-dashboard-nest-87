@@ -27,7 +27,7 @@ const Dashboard = () => {
       return roles?.role;
     },
     staleTime: 30000, // Cache role for 30 seconds
-    cacheTime: 60000, // Keep in cache for 1 minute
+    gcTime: 60000, // Keep in cache for 1 minute (renamed from cacheTime)
   });
 
   // Fetch user's NFC profiles with lower priority
