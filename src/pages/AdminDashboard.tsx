@@ -1,21 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
-import NFCCodeManagement from "@/components/admin/NFCCodeManagement";
-import ReviewCodeManagement from "@/components/admin/ReviewCodeManagement";
-import RecentActivatedCodesCard from "@/components/admin/RecentActivatedCodesCard";
-
-type UserWithRole = {
-  id: string;
-  email: string | null;
-  role: Database["public"]["Enums"]["app_role"] | null;
-};
+import { AdminDashboardContent } from "@/components/admin/AdminDashboardContent";
 
 export type NFCCode = {
   id: string;
@@ -33,10 +23,11 @@ const AdminDashboard = () => {
   const [isGeneratingNFC, setIsGeneratingNFC] = useState(false);
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
 
-  // Fetch user role
+  // Fetch user role first - this is critical for access control
   const { data: userRole, isLoading: roleLoading } = useQuery({
     queryKey: ["userRole"],
     queryFn: async () => {
+      console.log('Fetching user role');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
       
@@ -50,16 +41,14 @@ const AdminDashboard = () => {
     },
   });
 
-  // Fetch all users with their roles
-  const { data: users, isLoading: usersLoading } = useQuery<UserWithRole[]>({
+  // Only fetch other data if user is admin
+  const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
+      console.log('Fetching users');
       const { data: profiles, error } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          email
-        `);
+        .select(`id, email`);
 
       if (error) throw error;
 
@@ -67,22 +56,19 @@ const AdminDashboard = () => {
         .from("user_roles")
         .select("user_id, role");
 
-      return (profiles || []).map(profile => {
-        const userRole = roles?.find(r => r.user_id === profile.id);
-        return {
-          id: profile.id,
-          email: profile.email,
-          role: userRole?.role || null
-        };
-      });
+      return profiles.map(profile => ({
+        id: profile.id,
+        email: profile.email,
+        role: roles?.find(r => r.user_id === profile.id)?.role || null
+      }));
     },
     enabled: userRole === "admin",
   });
 
-  // Fetch NFC codes
   const { data: nfcCodes, isLoading: codesLoading } = useQuery({
     queryKey: ["nfcCodes"],
     queryFn: async () => {
+      console.log('Fetching NFC codes');
       const { data, error } = await supabase
         .from("nfc_codes")
         .select("*")
@@ -95,10 +81,10 @@ const AdminDashboard = () => {
     enabled: userRole === "admin",
   });
 
-  // Fetch Review codes
   const { data: reviewCodes, isLoading: reviewCodesLoading } = useQuery({
     queryKey: ["reviewCodes"],
     queryFn: async () => {
+      console.log('Fetching review codes');
       const { data, error } = await supabase
         .from("nfc_codes")
         .select("*")
@@ -111,7 +97,6 @@ const AdminDashboard = () => {
     enabled: userRole === "admin",
   });
 
-  // Generate NFC codes mutation
   const generateNFCCodesMutation = useMutation({
     mutationFn: async (count: number) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -140,7 +125,6 @@ const AdminDashboard = () => {
     },
   });
 
-  // Generate Review codes mutation
   const generateReviewCodesMutation = useMutation({
     mutationFn: async (count: number) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -169,12 +153,12 @@ const AdminDashboard = () => {
     },
   });
 
-  const handleGenerateNFCCodes = async (count: number) => {
+  const handleGenerateNFCCodes = (count: number) => {
     setIsGeneratingNFC(true);
     generateNFCCodesMutation.mutate(count);
   };
 
-  const handleGenerateReviewCodes = async (count: number) => {
+  const handleGenerateReviewCodes = (count: number) => {
     setIsGeneratingReview(true);
     generateReviewCodesMutation.mutate(count);
   };
@@ -211,7 +195,8 @@ const AdminDashboard = () => {
     }
   }, [roleLoading, userRole, navigate]);
 
-  if (roleLoading || usersLoading || codesLoading || reviewCodesLoading) {
+  // Show loading state only for role check
+  if (roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin" />
@@ -224,51 +209,22 @@ const AdminDashboard = () => {
       <div className="max-w-6xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         
-        <div className="grid gap-6 md:grid-cols-2">
-          <NFCCodeManagement
-            nfcCodes={nfcCodes || []}
-            isGenerating={isGeneratingNFC}
-            onGenerateCodes={handleGenerateNFCCodes}
-            onDownloadCSV={() => handleDownloadCSV(nfcCodes || [], 'nfc')}
-          />
-
-          <ReviewCodeManagement
-            reviewCodes={reviewCodes || []}
-            isGenerating={isGeneratingReview}
-            onGenerateCodes={handleGenerateReviewCodes}
-            onDownloadCSV={() => handleDownloadCSV(reviewCodes || [], 'review')}
-          />
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                User Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {users?.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{user.email}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Role: {user.role || "user"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {nfcCodes && (
-            <RecentActivatedCodesCard codes={nfcCodes} />
-          )}
-        </div>
+        <AdminDashboardContent
+          nfcCodes={nfcCodes || []}
+          reviewCodes={reviewCodes || []}
+          users={users || []}
+          isGeneratingNFC={isGeneratingNFC}
+          isGeneratingReview={isGeneratingReview}
+          onGenerateNFCCodes={handleGenerateNFCCodes}
+          onGenerateReviewCodes={handleGenerateReviewCodes}
+          onDownloadNFCCSV={() => handleDownloadCSV(nfcCodes || [], 'nfc')}
+          onDownloadReviewCSV={() => handleDownloadCSV(reviewCodes || [], 'review')}
+          isLoading={{
+            users: usersLoading,
+            codes: codesLoading,
+            reviewCodes: reviewCodesLoading,
+          }}
+        />
       </div>
     </div>
   );
