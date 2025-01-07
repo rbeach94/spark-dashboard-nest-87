@@ -81,12 +81,15 @@ const CodeRedirect = () => {
           return;
         }
 
-        // Handle profile type (existing logic)
-        if (!nfcCode.is_active || !nfcCode.url) {
-          console.log('Profile not active or no URL:', { 
-            is_active: nfcCode.is_active,
-            url: nfcCode.url
-          });
+        // Handle profile type
+        if (!nfcCode.is_active) {
+          console.log('Profile not active, redirecting to activate page');
+          navigate(`/activate/${code}`);
+          return;
+        }
+
+        if (!nfcCode.url) {
+          console.log('No URL found for profile, redirecting to activate page');
           navigate(`/activate/${code}`);
           return;
         }
