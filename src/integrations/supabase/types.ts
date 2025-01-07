@@ -49,6 +49,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_hidden: boolean | null
           redirect_url: string | null
           title: string | null
           type: string
@@ -63,6 +64,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_hidden?: boolean | null
           redirect_url?: string | null
           title?: string | null
           type?: string
@@ -77,6 +79,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_hidden?: boolean | null
           redirect_url?: string | null
           title?: string | null
           type?: string
@@ -326,6 +329,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_hidden: boolean | null
           redirect_url: string | null
           title: string | null
           type: string

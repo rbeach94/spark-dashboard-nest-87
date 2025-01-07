@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Download, ExternalLink } from "lucide-react";
 import type { NFCCode } from '@/pages/AdminDashboard';
 import QRCode from 'qrcode';
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AvailableCodesTableProps {
   codes: NFCCode[];
@@ -18,18 +21,16 @@ interface AvailableCodesTableProps {
 }
 
 const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps) => {
-  const availableCodes = codes.filter(code => !code.assigned_to).slice(0, 10);
+  const availableCodes = codes.filter(code => !code.assigned_to && !code.is_hidden).slice(0, 10);
 
   const handleQRDownload = async (url: string) => {
     try {
-      // Generate QR code as SVG
       const qrSvg = await QRCode.toString(url, {
         type: 'svg',
         margin: 1,
         width: 300
       });
 
-      // Create and download the SVG file
       const blob = new Blob([qrSvg], { type: 'image/svg+xml' });
       const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -41,6 +42,22 @@ const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps)
       URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error generating QR code:', error);
+    }
+  };
+
+  const handleHideToggle = async (code: NFCCode) => {
+    try {
+      const { error } = await supabase
+        .from('nfc_codes')
+        .update({ is_hidden: !code.is_hidden })
+        .eq('id', code.id);
+
+      if (error) throw error;
+      
+      toast.success(`Code ${code.is_hidden ? 'unhidden' : 'hidden'} successfully`);
+    } catch (error) {
+      console.error('Error updating code visibility:', error);
+      toast.error('Failed to update code visibility');
     }
   };
 
@@ -58,7 +75,7 @@ const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps)
           <TableRow>
             <TableHead>Code</TableHead>
             <TableHead>QR</TableHead>
-            <TableHead>Created At</TableHead>
+            <TableHead>Hide</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -86,7 +103,12 @@ const AvailableCodesTable = ({ codes, onDownloadCSV }: AvailableCodesTableProps)
                   Download QR
                 </Button>
               </TableCell>
-              <TableCell>{new Date(code.created_at).toLocaleDateString()}</TableCell>
+              <TableCell>
+                <Switch
+                  checked={code.is_hidden}
+                  onCheckedChange={() => handleHideToggle(code)}
+                />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
