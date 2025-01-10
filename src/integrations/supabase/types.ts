@@ -288,6 +288,33 @@ export type Database = {
         }
         Relationships: []
       }
+      secrets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["secret_type"] | null
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          type?: Database["public"]["Enums"]["secret_type"] | null
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["secret_type"] | null
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -346,6 +373,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       feedback_status: "new" | "in_consideration" | "in_production" | "done"
+      secret_type: "api_key" | "connection_string" | "token"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PlaceSearchProps {
   onPlaceSelect: (placeId: string, placeName: string) => void;
@@ -18,6 +19,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [places, setPlaces] = useState<Array<{ id: string; name: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     const searchPlaces = async () => {
@@ -27,6 +29,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
       }
 
       setIsLoading(true);
+      setConfigError(false);
       try {
         const { data, error } = await supabase
           .functions.invoke('get-secret', {
@@ -35,12 +38,14 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
 
         if (error) {
           console.error('Error fetching API key:', error);
+          setConfigError(true);
           toast.error('Error setting up search');
           return;
         }
 
-        if (!data?.GOOGLE_PLACES_API_KEY) {
+        if (!data?.value) {
           console.error('API key not found');
+          setConfigError(true);
           toast.error('Search configuration is incomplete');
           return;
         }
@@ -51,7 +56,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': data.GOOGLE_PLACES_API_KEY,
+              'X-Goog-Api-Key': data.value,
               'X-Goog-FieldMask': 'places.id,places.displayName'
             },
             body: JSON.stringify({
@@ -85,6 +90,13 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
 
   return (
     <div className="space-y-4">
+      {configError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            The search feature is not configured properly. Please contact support to resolve this issue.
+          </AlertDescription>
+        </Alert>
+      )}
       <Input
         placeholder="Search for your business..."
         value={searchTerm}
