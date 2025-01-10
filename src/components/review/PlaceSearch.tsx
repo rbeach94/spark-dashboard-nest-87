@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface PlaceSearchProps {
   onPlaceSelect: (placeId: string, placeName: string) => void;
@@ -27,10 +28,22 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
 
       setIsLoading(true);
       try {
-        const { data: { GOOGLE_PLACES_API_KEY } } = await supabase
+        const { data, error } = await supabase
           .functions.invoke('get-secret', {
             body: { name: 'GOOGLE_PLACES_API_KEY' }
           });
+
+        if (error) {
+          console.error('Error fetching API key:', error);
+          toast.error('Error setting up search');
+          return;
+        }
+
+        if (!data?.GOOGLE_PLACES_API_KEY) {
+          console.error('API key not found');
+          toast.error('Search configuration is incomplete');
+          return;
+        }
 
         const response = await fetch(
           `https://places.googleapis.com/v1/places:searchText`,
@@ -38,7 +51,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+              'X-Goog-Api-Key': data.GOOGLE_PLACES_API_KEY,
               'X-Goog-FieldMask': 'places.id,places.displayName'
             },
             body: JSON.stringify({
@@ -47,15 +60,20 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
           }
         );
 
-        const data = await response.json();
-        if (data.places) {
-          setPlaces(data.places.map((place: any) => ({
+        if (!response.ok) {
+          throw new Error(`Places API error: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        if (responseData.places) {
+          setPlaces(responseData.places.map((place: any) => ({
             id: place.id,
             name: place.displayName.text
           })));
         }
       } catch (error) {
         console.error('Error searching places:', error);
+        toast.error('Failed to search places');
       } finally {
         setIsLoading(false);
       }
