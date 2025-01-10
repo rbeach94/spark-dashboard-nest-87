@@ -53,7 +53,7 @@ export const ReviewPlaqueForm = () => {
     fetchPlaqueData();
   }, [code]);
 
-  const handlePlaceSelect = (placeId: string, placeName: string) => {
+  const handlePlaceSelect = async (placeId: string, placeName: string) => {
     const { data: { GOOGLE_PLACES_API_KEY } } = await supabase
       .functions.invoke('get-secret', {
         body: { name: 'GOOGLE_PLACES_API_KEY' }
