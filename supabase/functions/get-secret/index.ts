@@ -15,6 +15,7 @@ serve(async (req) => {
   try {
     // Get the request body
     const { name } = await req.json()
+    console.log('Fetching secret for:', name)
 
     if (!name) {
       return new Response(
@@ -31,6 +32,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    console.log('Querying secrets table for:', name)
 
     // Get the secret from Supabase
     const { data, error } = await supabaseAdmin
@@ -50,9 +53,22 @@ serve(async (req) => {
       )
     }
 
+    if (!data) {
+      console.error('No secret found for:', name)
+      return new Response(
+        JSON.stringify({ error: 'Secret not found' }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    console.log('Successfully retrieved secret for:', name)
+
     // Return the secret value
     return new Response(
-      JSON.stringify({ [name]: data?.value }),
+      JSON.stringify({ value: data.value }),
       { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
