@@ -4,6 +4,14 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
+import { PlaceSearch } from "./PlaceSearch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const ReviewPlaqueForm = () => {
   const navigate = useNavigate();
@@ -12,6 +20,8 @@ export const ReviewPlaqueForm = () => {
   const [formData, setFormData] = useState({
     businessName: "",
     websiteUrl: "",
+    reviewType: "google",
+    placeId: "",
   });
 
   useEffect(() => {
@@ -34,12 +44,28 @@ export const ReviewPlaqueForm = () => {
         setFormData({
           businessName: data.title || "",
           websiteUrl: data.redirect_url || "",
+          reviewType: "google",
+          placeId: "",
         });
       }
     };
 
     fetchPlaqueData();
   }, [code]);
+
+  const handlePlaceSelect = (placeId: string, placeName: string) => {
+    const { data: { GOOGLE_PLACES_API_KEY } } = await supabase
+      .functions.invoke('get-secret', {
+        body: { name: 'GOOGLE_PLACES_API_KEY' }
+      });
+
+    setFormData({
+      ...formData,
+      businessName: placeName,
+      placeId: placeId,
+      websiteUrl: `https://places.googleapis.com/v1/places/${placeId}?fields=id&key=${GOOGLE_PLACES_API_KEY}`,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +104,34 @@ export const ReviewPlaqueForm = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <div>
+            <label className="block text-sm font-medium mb-1">
+              Review Platform
+            </label>
+            <Select
+              value={formData.reviewType}
+              onValueChange={(value) =>
+                setFormData({ ...formData, reviewType: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select review platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="google">Google Reviews</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Search Your Business
+            </label>
+            <PlaceSearch onPlaceSelect={handlePlaceSelect} />
+          </div>
+
+          <div>
             <label htmlFor="businessName" className="block text-sm font-medium mb-1">
-              Name of Review Plaque <span className="text-red-500">*</span>
+              Business Name <span className="text-red-500">*</span>
             </label>
             <Input
               id="businessName"
@@ -97,7 +149,7 @@ export const ReviewPlaqueForm = () => {
 
           <div>
             <label htmlFor="websiteUrl" className="block text-sm font-medium mb-1">
-              Website URL
+              Review URL
             </label>
             <Input
               id="websiteUrl"
@@ -106,7 +158,8 @@ export const ReviewPlaqueForm = () => {
               onChange={(e) =>
                 setFormData({ ...formData, websiteUrl: e.target.value })
               }
-              placeholder="Enter your website URL (optional)"
+              placeholder="Review URL will be generated automatically"
+              readOnly={!!formData.placeId}
             />
           </div>
         </div>
