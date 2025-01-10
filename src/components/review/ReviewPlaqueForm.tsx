@@ -1,89 +1,95 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate, useParams } from "react-router-dom";
 import { PlaceSearch } from "./PlaceSearch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export const ReviewPlaqueForm = () => {
-  const navigate = useNavigate();
   const { code } = useParams();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    businessName: "",
-    websiteUrl: "",
-    reviewType: "google",
-    placeId: "",
-  });
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [placeId, setPlaceId] = useState("");
+  const [placeName, setPlaceName] = useState("");
 
   useEffect(() => {
     const fetchPlaqueData = async () => {
       if (!code) return;
 
-      const { data, error } = await supabase
+      const { data: nfcCode, error } = await supabase
         .from("nfc_codes")
         .select("*")
         .eq("code", code)
         .single();
 
       if (error) {
-        console.error("Error fetching plaque data:", error);
-        toast.error("Failed to fetch plaque data");
+        console.error("Error fetching NFC code:", error);
+        toast.error("Error loading plaque data");
         return;
       }
 
-      if (data) {
-        setFormData({
-          businessName: data.title || "",
-          websiteUrl: data.redirect_url || "",
-          reviewType: "google",
-          placeId: "",
-        });
+      if (!nfcCode) {
+        toast.error("Plaque not found");
+        navigate("/dashboard");
+        return;
       }
+
+      if (nfcCode.title) setTitle(nfcCode.title);
+      if (nfcCode.description) setDescription(nfcCode.description);
     };
 
     fetchPlaqueData();
   }, [code]);
 
   const handlePlaceSelect = async (placeId: string, placeName: string) => {
-    const { data: { GOOGLE_PLACES_API_KEY } } = await supabase
-      .functions.invoke('get-secret', {
-        body: { name: 'GOOGLE_PLACES_API_KEY' }
-      });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Please log in to continue");
+        navigate("/login");
+        return;
+      }
 
-    setFormData({
-      ...formData,
-      businessName: placeName,
-      placeId: placeId,
-      websiteUrl: `https://places.googleapis.com/v1/places/${placeId}?fields=id&key=${GOOGLE_PLACES_API_KEY}`,
-    });
+      const { data: { GOOGLE_PLACES_API_KEY }, error: secretError } = await supabase
+        .functions.invoke('get-secret', {
+          body: { name: 'GOOGLE_PLACES_API_KEY' }
+        });
+
+      if (secretError) {
+        console.error("Error fetching API key:", secretError);
+        toast.error("Error setting up review link");
+        return;
+      }
+
+      const reviewUrl = `https://places.googleapis.com/v1/places/${placeId}?fields=id&key=${GOOGLE_PLACES_API_KEY}`;
+      setPlaceId(placeId);
+      setPlaceName(placeName);
+      setTitle(`Review ${placeName}`);
+      setDescription(`Please leave us a review on Google!`);
+    } catch (error) {
+      console.error("Error in handlePlaceSelect:", error);
+      toast.error("Error setting up review link");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code) return;
 
-    if (!formData.businessName.trim()) {
-      toast.error("Please enter a name for the review plaque");
-      return;
-    }
-    
-    setIsSubmitting(true);
-
+    setIsLoading(true);
     try {
       const { error } = await supabase
         .from("nfc_codes")
         .update({
-          title: formData.businessName,
-          redirect_url: formData.websiteUrl,
+          title,
+          description,
+          type: "review",
         })
         .eq("code", code);
 
@@ -95,79 +101,49 @@ export const ReviewPlaqueForm = () => {
       console.error("Error updating review plaque:", error);
       toast.error("Failed to update review plaque");
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="container max-w-2xl mx-auto py-8">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Review Platform
-            </label>
-            <Select
-              value={formData.reviewType}
-              onValueChange={(value) =>
-                setFormData({ ...formData, reviewType: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select review platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="google">Google Reviews</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="container max-w-2xl mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Create Review Plaque</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Business Search</Label>
+              <PlaceSearch onPlaceSelect={handlePlaceSelect} />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Search Your Business
-            </label>
-            <PlaceSearch onPlaceSelect={handlePlaceSelect} />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="businessName" className="block text-sm font-medium mb-1">
-              Business Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="businessName"
-              value={formData.businessName}
-              onChange={(e) =>
-                setFormData({ ...formData, businessName: e.target.value })
-              }
-              required
-              placeholder="Enter the name for your review plaque"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              This name will be displayed on your dashboard and review URL
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="websiteUrl" className="block text-sm font-medium mb-1">
-              Review URL
-            </label>
-            <Input
-              id="websiteUrl"
-              type="url"
-              value={formData.websiteUrl}
-              onChange={(e) =>
-                setFormData({ ...formData, websiteUrl: e.target.value })
-              }
-              placeholder="Review URL will be generated automatically"
-              readOnly={!!formData.placeId}
-            />
-          </div>
-        </div>
-
-        <Button type="submit" disabled={isSubmitting} className="w-full">
-          {isSubmitting ? "Saving..." : "Save Review Plaque"}
-        </Button>
-      </form>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save Review Plaque"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };
