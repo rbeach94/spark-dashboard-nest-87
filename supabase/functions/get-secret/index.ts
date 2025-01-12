@@ -53,7 +53,7 @@ serve(async (req) => {
       )
     }
 
-    if (!data) {
+    if (!data?.value) {
       console.error('No secret found for:', name)
       return new Response(
         JSON.stringify({ error: 'Secret not found' }),

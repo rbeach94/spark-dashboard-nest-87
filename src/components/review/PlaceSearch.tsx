@@ -33,20 +33,20 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
       setConfigError(false);
       try {
         console.log('Fetching API key from secrets...');
-        const { data, error } = await supabase
+        const { data: secretData, error: secretError } = await supabase
           .functions.invoke('get-secret', {
             body: { name: 'GOOGLE_PLACES_API_KEY' }
           });
 
-        if (error) {
-          console.error('Error fetching API key:', error);
+        if (secretError) {
+          console.error('Error fetching API key:', secretError);
           setConfigError(true);
           toast.error('Error setting up search');
           return;
         }
 
-        if (!data?.value) {
-          console.error('API key not found in response:', data);
+        if (!secretData?.value) {
+          console.error('API key not found in response:', secretData);
           setConfigError(true);
           toast.error('Search configuration is incomplete');
           return;
@@ -59,7 +59,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': data.value,
+              'X-Goog-Api-Key': secretData.value,
               'X-Goog-FieldMask': 'places.id,places.displayName'
             },
             body: JSON.stringify({
@@ -80,10 +80,13 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
             id: place.id,
             name: place.displayName.text
           })));
+        } else {
+          setPlaces([]);
         }
       } catch (error) {
         console.error('Error searching places:', error);
         toast.error('Failed to search places');
+        setConfigError(true);
       } finally {
         setIsLoading(false);
       }
@@ -98,7 +101,7 @@ export const PlaceSearch = ({ onPlaceSelect }: PlaceSearchProps) => {
       {configError && (
         <Alert variant="destructive">
           <AlertDescription>
-            The search feature is not configured properly. Please contact support to resolve this issue.
+            The search feature is not configured properly. Please try refreshing the page or contact support if the issue persists.
           </AlertDescription>
         </Alert>
       )}
