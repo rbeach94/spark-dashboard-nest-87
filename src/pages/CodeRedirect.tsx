@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,39 +47,47 @@ const CodeRedirect = () => {
         if (nfcCode.type === 'review') {
           console.log('Review plaque detected:', nfcCode);
           
-          // If the plaque is not active or has no redirect URL
-          if (!nfcCode.is_active || !nfcCode.redirect_url) {
-            console.log('Review plaque not active or no redirect URL:', { 
-              is_active: nfcCode.is_active,
-              redirect_url: nfcCode.redirect_url
+          // If the plaque is not active 
+          if (!nfcCode.is_active) {
+            console.log('Review plaque not active:', { 
+              is_active: nfcCode.is_active
             });
             navigate(`/activate/${code}`);
             return;
           }
 
-          try {
-            // Record the visit before redirecting
-            console.log('Recording visit for review plaque:', nfcCode.id);
-            const { error: visitError } = await supabase
-              .from('profile_visits')
-              .insert({ profile_id: nfcCode.id });
+          // If the plaque has a redirect URL, use it
+          if (nfcCode.redirect_url) {
+            try {
+              // Record the visit before redirecting
+              console.log('Recording visit for review plaque:', nfcCode.id);
+              const { error: visitError } = await supabase
+                .from('profile_visits')
+                .insert({ profile_id: nfcCode.id });
 
-            if (visitError) {
-              console.error('Error recording visit:', visitError);
-              // Continue with redirect even if visit recording fails
-            } else {
-              console.log('Visit recorded successfully');
+              if (visitError) {
+                console.error('Error recording visit:', visitError);
+                // Continue with redirect even if visit recording fails
+              } else {
+                console.log('Visit recorded successfully');
+              }
+
+              // Redirect to the plaque's redirect URL
+              console.log('Redirecting to review plaque URL:', nfcCode.redirect_url);
+              window.location.href = nfcCode.redirect_url;
+              return;
+            } catch (error) {
+              console.error('Error during visit recording:', error);
+              // Still redirect even if there's an error
+              window.location.href = nfcCode.redirect_url;
+              return;
             }
-
-            // Redirect to the plaque's redirect URL
-            console.log('Redirecting to review plaque URL:', nfcCode.redirect_url);
-            window.location.href = nfcCode.redirect_url;
-          } catch (error) {
-            console.error('Error during visit recording:', error);
-            // Still redirect even if there's an error
-            window.location.href = nfcCode.redirect_url;
+          } else {
+            // No redirect URL set for this review plaque
+            console.log('No redirect URL for review plaque, redirecting to activate page');
+            navigate(`/activate/${code}`);
+            return;
           }
-          return;
         }
 
         // Handle profile type

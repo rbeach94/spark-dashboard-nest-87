@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ export const ReviewPlaqueForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [placeId, setPlaceId] = useState("");
   const [placeName, setPlaceName] = useState("");
+  const [redirectUrl, setRedirectUrl] = useState("");
 
   useEffect(() => {
     const fetchPlaqueData = async () => {
@@ -41,6 +43,7 @@ export const ReviewPlaqueForm = () => {
 
       if (nfcCode.title) setTitle(nfcCode.title);
       if (nfcCode.description) setDescription(nfcCode.description);
+      if (nfcCode.redirect_url) setRedirectUrl(nfcCode.redirect_url);
     };
 
     fetchPlaqueData();
@@ -67,11 +70,13 @@ export const ReviewPlaqueForm = () => {
         return;
       }
 
-      const reviewUrl = `https://places.googleapis.com/v1/places/${placeId}?fields=id&key=${GOOGLE_PLACES_API_KEY}`;
+      // Create Google review URL
+      const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
       setPlaceId(placeId);
       setPlaceName(placeName);
       setTitle(`Review ${placeName}`);
       setDescription(`Please leave us a review on Google!`);
+      setRedirectUrl(reviewUrl);
     } catch (error) {
       console.error("Error in handlePlaceSelect:", error);
       toast.error("Error setting up review link");
@@ -90,6 +95,8 @@ export const ReviewPlaqueForm = () => {
           title,
           description,
           type: "review",
+          redirect_url: redirectUrl,
+          is_active: true
         })
         .eq("code", code);
 
@@ -136,6 +143,20 @@ export const ReviewPlaqueForm = () => {
                 onChange={(e) => setDescription(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="redirectUrl">Redirect URL</Label>
+              <Input
+                id="redirectUrl"
+                value={redirectUrl}
+                onChange={(e) => setRedirectUrl(e.target.value)}
+                placeholder="https://..."
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The URL where users will be redirected when scanning this plaque.
+              </p>
             </div>
 
             <Button type="submit" disabled={isLoading}>
