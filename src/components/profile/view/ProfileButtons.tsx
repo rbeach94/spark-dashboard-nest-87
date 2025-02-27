@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,48 +14,56 @@ interface ProfileButtonsProps {
 }
 
 export const ProfileButtons = ({ profile, buttons }: ProfileButtonsProps) => {
-  const handleButtonClick = async (button: { id: string, action_type: string, action_value: string }) => {
+  const handleButtonClick = async (buttonId: string) => {
     // Record the button click
-    console.log('Recording button click:', { buttonId: button.id, profileId: profile.id });
+    console.log('Recording button click:', { buttonId, profileId: profile.id });
     const { error } = await supabase
       .from('profile_button_clicks')
       .insert({
-        button_id: button.id,
+        button_id: buttonId,
         profile_id: profile.id
       });
 
     if (error) {
       console.error('Error recording button click:', error);
     }
+  };
 
-    // Perform the button action
+  const getButtonUrl = (button: { action_type: string, action_value: string }) => {
     switch (button.action_type) {
       case 'link':
-        window.open(button.action_value, '_blank');
-        break;
+        return button.action_value;
       case 'email':
-        window.location.href = `mailto:${button.action_value}`;
-        break;
+        return `mailto:${button.action_value}`;
       case 'call':
-        window.location.href = `tel:${button.action_value}`;
-        break;
+        return `tel:${button.action_value}`;
+      default:
+        return '#';
     }
   };
 
   return (
     <div className="space-y-4">
       {buttons?.map((button) => (
-        <Button
+        <a
           key={button.id}
-          className="w-full"
-          style={{ 
-            backgroundColor: profile.button_color || '#8899ac',
-            color: profile.button_text_color || '#FFFFFF'
-          }}
-          onClick={() => handleButtonClick(button)}
+          href={getButtonUrl(button)}
+          target={button.action_type === 'link' ? '_blank' : undefined}
+          rel={button.action_type === 'link' ? 'noopener noreferrer' : undefined}
+          className="block w-full"
+          onClick={() => handleButtonClick(button.id)}
         >
-          {button.label}
-        </Button>
+          <Button
+            className="w-full"
+            style={{ 
+              backgroundColor: profile.button_color || '#8899ac',
+              color: profile.button_text_color || '#FFFFFF'
+            }}
+            type="button"
+          >
+            {button.label}
+          </Button>
+        </a>
       ))}
     </div>
   );
